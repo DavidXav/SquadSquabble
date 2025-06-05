@@ -1,0 +1,12 @@
+# SquadSquabble
+
+A self-hosted Family Fued game platform for family events using:
+- Node.js backend
+- React-based Game Board and Host UIs
+- ESP32 physical buzzer faceoff buttons
+
+## Structure
+- `backend/`: Game server & APIs
+- `game-board-ui/`: Display screen for TV
+- `host-ui/`: Tablet interface for game control
+- `esp32-buzzer/`: Microcontroller code for faceoff buttons

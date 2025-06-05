@@ -1,0 +1,14 @@
+# Node.js
+node_modules/
+dist/
+build/
+
+# ESP32 (if Arduino)
+*.elf
+*.bin
+*.hex
+
+# OS/Editor Stuff
+.DS_Store
+.vscode/
+.idea/
