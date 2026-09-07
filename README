@@ -1,19 +1,1 @@
 # SquadSquabble
-
-A self-hosted Family Fued game platform for family events using:
-- Node.js backend
-- React-based Game Board and Host UIs
-- ESP32 physical buzzer faceoff buttons
-
-## Structure
-- `Game_Logic/`: Python game loop, data loading, and CLI host experience
-- `data/`: Game content and Fast Money prompts
-- `web/`: React display board for showing rounds, teams, and host controls
-
-## Running the React display board
-1. `cd web`
-2. Install dependencies: `npm install`
-3. Start the dev server: `npm run dev`
-4. Open the shown URL (default http://localhost:5173) in a browser to display the board
-
-The board loads the sample game found in `data/stub_game.json`, lets you reveal answers, track strikes, award the round bank to the active team, and switch between rounds while keeping the scoreboard aligned with the show format. Use it side-by-side with the Python host flow or adapt it to future APIs. 
