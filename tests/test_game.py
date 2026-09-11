@@ -1,93 +1,329 @@
 import pytest
-from server.game import Game, Answer, GamePhase
+from server.game import Game, Answer, GamePhase, Team
 
 
-def test_new_game_starts_waiting():
+def test_buzz_starts_face_off():
     game = Game()
 
-    assert game.state.phase == GamePhase.WAITING
-    assert game.state.question is None
-    assert game.state.answers == []
-    assert game.state.strikes == 0
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
 
-def test_start_round():
-    game = Game()
-    answers = [Answer(text="Answer 1", points=10), Answer(text="Answer 2", points=20)]
-    game.start_round("Sample Question", answers)
-
-    assert game.state.phase == GamePhase.QUESTION
-    assert game.state.question == "Sample Question"
-    assert game.state.answers == answers
-    assert game.state.strikes == 0
-    assert game.state.buzzing_team is None
-
-def test_team_can_buzz_during_question_phase():
-    game = Game()
-    answers = [Answer(text="Answer 1", points=10), Answer(text="Answer 2", points=20)]
-    game.start_round("Sample Question", answers)
-
+    game.start_round("Name an animal", answers)
     game.buzz("Team A")
 
-    assert game.state.phase == GamePhase.BUZZING
-    assert game.state.buzzing_team == "Team A"
+    assert game.state.phase == GamePhase.FACE_OFF
+    assert game.state.first_buzzing_team == "Team A"
 
-def test_team_cannot_buzz_before_round_starts():
+    
+def test_first_team_submits_face_off_answer():
     game = Game()
 
-    with pytest.raises(ValueError):
-        game.buzz("Team A")
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
 
-def test_team_can_submit_answer_after_buzzing():
-    game = Game()
-    answers = [Answer(text="Answer 1", points=10), Answer(text="Answer 2", points=20)]
-    game.start_round("Sample Question", answers)
+    game.start_round("Name an animal", answers)
     game.buzz("Team A")
 
-    game.submit_answer("Answer 1")
+    game.submit_face_off_answer("Team A", "Dogs")
 
-    assert game.state.phase == GamePhase.ANSWERING
+    assert game.state.first_buzzing_team_score == 30
+    assert game.state.phase == GamePhase.FACE_OFF
+    assert game.state.round_total_score == 30
     assert game.state.answers[0].revealed is True
-    assert game.state.answers[1].revealed is False
 
-def test_team_cannot_submit_answer_before_buzzing():
+def test_second_team_submits_face_off_answer():
     game = Game()
-    answers = [Answer(text="Answer 1", points=10), Answer(text="Answer 2", points=20)]
-    game.start_round("Sample Question", answers)
 
-    with pytest.raises(ValueError):
-        game.submit_answer("Answer 1")
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
 
-def test_team_cannot_submit_nonexistent_answer():
-    game = Game()
-    answers = [Answer(text="Answer 1", points=10), Answer(text="Answer 2", points=20)]
-    game.start_round("Sample Question", answers)
+    game.start_round("Name an animal", answers)
     game.buzz("Team A")
 
-    with pytest.raises(ValueError):
-        game.submit_answer("Nonexistent Answer")
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
 
-def test_add_strike():
+    assert game.state.second_buzzing_team == "Team B"
+    assert game.state.second_buzzing_team_score == 20
+    assert game.state.phase == GamePhase.ANSWERING
+
+def test_first_team_wins_face_off():
     game = Game()
 
-    game.start_round("Sample Question", [Answer(text="Answer 1", points=10)])
+    game.state.teams = [
+        Team(name="Team A"),
+        Team(name="Team B"),
+    ]
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
+
+    game.start_round("Name an animal", answers)
     game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    assert game.state.answering_team == "Team A"
+    assert game.state.phase == GamePhase.ANSWERING
+
+def test_second_team_wins_face_off():
+    game = Game()
+
+    game.state.teams = [
+        Team(name="Team A"),
+        Team(name="Team B"),
+    ]
+
+    answers = [
+        Answer(text="Dogs", points=20),
+        Answer(text="Cats", points=30),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    assert game.state.answering_team == "Team B"
+    assert game.state.phase == GamePhase.ANSWERING
+
+def test_face_off_answers_add_to_round_total():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    assert game.state.round_total_score == 50
+
+def test_cannot_submit_face_off_answer_before_buzz():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+    ]
+
+    game.start_round("Name an animal", answers)
+
+    with pytest.raises(ValueError):
+        game.submit_face_off_answer("Team A", "Dogs")
+
+def test_face_off_answer_not_found():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    with pytest.raises(ValueError, match="Answer not found"):
+        game.submit_face_off_answer("Team A", "Elephant")
+
+def test_face_off_answer_not_found():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    with pytest.raises(ValueError, match="Answer not found"):
+        game.submit_face_off_answer("Team A", "Elephant")
+
+def test_cannot_submit_revealed_face_off_answer():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+
+    with pytest.raises(ValueError, match="Answer already revealed"):
+        game.submit_face_off_answer("Team B", "Dogs")
+
+def test_cannot_submit_revealed_face_off_answer():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+
+    with pytest.raises(ValueError, match="Answer already revealed"):
+        game.submit_face_off_answer("Team B", "Dogs")
+
+def test_first_team_cannot_submit_twice():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+        Answer(text="Birds", points=10),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+
+    with pytest.raises(ValueError, match="First team has already submitted"):
+        game.submit_face_off_answer("Team A", "Cats")
+
+def test_cannot_submit_face_off_answer_after_face_off():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+        Answer(text="Birds", points=10),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    with pytest.raises(ValueError, match="not in face-off phase"):
+        game.submit_face_off_answer("Team C", "Birds")
+
+def test_submit_correct_answer():
+    game = Game()
+
+    game.state.teams = [
+        Team(name="Team A"),
+        Team(name="Team B"),
+    ]
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+        Answer(text="Birds", points=10),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    game.submit_answer("Birds")
+
+    assert game.state.answers[2].revealed is True
+    assert game.state.round_total_score == 60
+
+def test_three_strikes_starts_steal():
+    game = Game()
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
     game.add_strike()
-
     assert game.state.strikes == 1
-    assert game.state.phase == GamePhase.BUZZING
+    assert game.state.phase == GamePhase.ANSWERING
 
     game.add_strike()
-
     assert game.state.strikes == 2
-    assert game.state.phase == GamePhase.BUZZING
+    assert game.state.phase == GamePhase.ANSWERING
 
     game.add_strike()
-
     assert game.state.strikes == 3
-    assert game.state.phase == GamePhase.BUZZING
+    assert game.state.phase == GamePhase.STEAL
 
-def test_cannot_add_strike_before_buzzing():
+def test_correct_steal_awards_points():
     game = Game()
 
-    with pytest.raises(ValueError):
-        game.add_strike()
+    game.state.teams = [
+        Team(name="Team A"),
+        Team(name="Team B"),
+    ]
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+        Answer(text="Birds", points=10),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    # This will eventually put us in STEAL
+    game.add_strike()
+    game.add_strike()
+    game.add_strike()
+
+    game.steal_answer_correct("Team B", "Birds")
+
+    assert game.state.phase == GamePhase.ROUND_END
+    assert game.state.teams[1].score == 60
+
+def test_incorrect_steal_awards_points_to_answering_team():
+    game = Game()
+
+    game.state.teams = [
+        Team(name="Team A"),
+        Team(name="Team B"),
+    ]
+
+    answers = [
+        Answer(text="Dogs", points=30),
+        Answer(text="Cats", points=20),
+        Answer(text="Birds", points=10),
+    ]
+
+    game.start_round("Name an animal", answers)
+    game.buzz("Team A")
+
+    game.submit_face_off_answer("Team A", "Dogs")
+    game.submit_face_off_answer("Team B", "Cats")
+
+    game.add_strike()
+    game.add_strike()
+    game.add_strike()
+
+    game.steal_answer_incorrect()
+
+    assert game.state.phase == GamePhase.ROUND_END
+    assert game.state.teams[0].score == 50

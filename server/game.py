@@ -64,23 +64,41 @@ class Game:
         self.state.first_buzzing_team = team
         self.state.second_buzzing_team = None
     
-    def submit_face_off_answer(self, answer_text: str):
+    def submit_face_off_answer(self, team: str, answer_text: str):
         if self.state.phase != GamePhase.FACE_OFF:
             raise ValueError("Cannot submit face-off answer when not in face-off phase")
-        
+
         answer = next((a for a in self.state.answers if a.text == answer_text), None)
+
         if not answer:
             raise ValueError("Answer not found")
-        
+
         if answer.revealed:
             raise ValueError("Answer already revealed")
-        
+
+        # First team is the team that buzzed
         if self.state.first_buzzing_team_score == -1:
+            if team != self.state.first_buzzing_team:
+                raise ValueError("First face-off answer must come from buzzing team")
+
             self.state.first_buzzing_team_score = answer.points
+
+        # Second team answers
         else:
+            if team == self.state.first_buzzing_team:
+                raise ValueError("First team has already submitted a face-off answer")
+
+            self.state.second_buzzing_team = team
             self.state.second_buzzing_team_score = answer.points
+
+            # Determine who wins the face-off
+            if self.state.first_buzzing_team_score > self.state.second_buzzing_team_score:
+                self.state.answering_team = self.state.first_buzzing_team
+            else:
+                self.state.answering_team = self.state.second_buzzing_team
+
             self.state.phase = GamePhase.ANSWERING
-        
+
         self.state.round_total_score += answer.points
         answer.revealed = True
     
@@ -125,7 +143,7 @@ class Game:
         answer.revealed = True
 
     def add_strike(self):
-        if self.state.phase != GamePhase.BUZZING:
+        if self.state.phase != GamePhase.ANSWERING:
             raise ValueError("Cannot add strike")
 
         self.state.strikes += 1
@@ -152,14 +170,14 @@ class Game:
                 team.score += self.state.round_total_score
         self.state.phase = GamePhase.ROUND_END
 
-    def steal_answer_incorrect(self, team: str):
+    def steal_answer_incorrect(self):
         if self.state.phase != GamePhase.STEAL:
             raise ValueError("Cannot steal answer when not in steal phase")
         
-        #TODO give points to not stealing team
         for team in self.state.teams:
             if team.name == self.state.answering_team:
                 team.score += self.state.round_total_score
+
         self.state.phase = GamePhase.ROUND_END
     
     def end_round(self):
